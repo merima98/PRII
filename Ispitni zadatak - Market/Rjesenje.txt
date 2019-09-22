@@ -1,0 +1,226 @@
+#include <iostream>
+#include<memory>
+#include<fstream>
+#include<iomanip>
+#include<tuple>
+#include<functional>
+using namespace std;
+#pragma warning(disable:4996)
+
+const char * crt = "\n-------------------------------------------\n";
+struct Datum {
+	int _dan;	int _mjesec; int _godina;
+	void Unos(int d, int m, int g) {
+		_dan = d;
+		_mjesec = m;
+		_godina = g;
+	}
+	void Ispis() {
+		cout << _dan << "." << _mjesec << "." << _godina << " ";
+	}
+};
+struct Proizvod {
+	char _naziv[20];
+	float _cijena;
+	float _stanjeSkladista;
+
+	void Unos(const char* naziv, float cijena) {
+		strcpy_s(_naziv, 20, naziv);
+		_cijena = cijena;
+		_stanjeSkladista = 0;
+	}
+	void DodajUSkladiste(float kolicina) {
+		_stanjeSkladista += kolicina;
+	}
+	void UkloniSaSkladista(float kolicina) {
+		_stanjeSkladista -= kolicina;
+	}
+	void Ispis() {
+		cout << _naziv << ", cijena: " << _cijena << "KM, stanje: " << _stanjeSkladista << " " << endl;
+	}
+};
+struct StavkaFakture {
+	float _kolicina;
+	Proizvod* _proizvod; 
+	bool _stornirana;
+	void Unos(Proizvod* proizvod, float kolicina) {
+		_kolicina = kolicina;
+		_proizvod = proizvod;
+		_stornirana = false;
+	}
+	float GetIznos() {
+		return _kolicina * _proizvod->_cijena;
+	}
+	void Ispis() {
+		cout << _proizvod->_naziv << "\t" << _kolicina << "\t" << _proizvod->_cijena << "\t" << GetIznos() << "BAM";
+		if (_stornirana)
+			cout << " Storno";
+		cout << endl;
+	}
+};
+struct Faktura {
+	Datum _datum;
+	StavkaFakture ** _stavke;
+	int _brojStavki;
+	void Unos(Datum datum) {
+		_datum = datum;
+		_brojStavki = 0;
+		_stavke = nullptr;
+	}
+	void Ispis() {
+		_datum.Ispis(); cout << crt << "STAVKE: " << endl;
+		for (int i = 0; i < _brojStavki; i++)
+			if (_stavke[i] != nullptr)
+				_stavke[i]->Ispis();
+	}
+	void DodajStavku(Proizvod *proizvod, float kolicina) {
+		StavkaFakture**temp = new StavkaFakture*[_brojStavki + 1];
+		for (int i = 0; i < _brojStavki; i++) {
+			temp[i] = new StavkaFakture;
+			temp[i]->Unos(_stavke[i]->_proizvod, _stavke[i]->_kolicina);
+		}
+		temp[_brojStavki] = new StavkaFakture;
+		temp[_brojStavki]->Unos(proizvod, kolicina);
+		_stavke = temp;
+		_brojStavki++;
+	}
+	float GetIznosSuma(){}
+};
+const int Max = 100;
+struct Market {
+	Proizvod* Proizvodi[Max] = { NULL };
+	Faktura* Fakture[Max] = { NULL };
+
+	void Dealociraj() {
+		for (size_t i = 0; i < Max; i++) {
+			delete Proizvodi[i]; Proizvodi[i] = NULL;
+		}
+		for (size_t i = 0; i < Max; i++) {
+			delete Fakture[i]; Fakture[i] = NULL;
+		}
+	}
+};
+void dodaj_proizvod(Market &market, const char*naziv, float cijena, float kolicina) {
+	for (int i = 0; i < Max; i++){
+		if (market.Proizvodi[i] != nullptr && strcmp(market.Proizvodi[i]->_naziv, naziv) == 0) {
+			market.Proizvodi[i]->DodajUSkladiste(kolicina);
+			return;
+		}
+	}
+	for (int i = 0; i < Max; i++){
+		if (market.Proizvodi[i] == nullptr) {
+			market.Proizvodi[i] = new Proizvod;
+			market.Proizvodi[i]->Unos(naziv, cijena);
+			market.Proizvodi[i]->DodajUSkladiste(kolicina);
+			return;
+		}
+	}
+}
+void kreiraj_fakturu(Market &market, int dan, int mjesec, int godina) {
+	for (int i = 0; i < Max; i++)
+		if (market.Fakture[i] == nullptr) {
+			Datum datum; datum.Unos(dan, mjesec, godina);
+			market.Fakture[i] = new Faktura;
+			market.Fakture[i]->Unos(datum);
+			return;
+		}
+}
+void dodaj_stavku_fakture(Market&market, const char*naziv, float kolicina) {
+	Proizvod*proizvodManipulacije = nullptr;
+	for (int i = 0; i < Max; i++)
+		if (market.Proizvodi[i] != nullptr && strcmp(market.Proizvodi[i]->_naziv, naziv) == 0) {
+			proizvodManipulacije = market.Proizvodi[i];
+			break;
+		}
+	if (proizvodManipulacije->_stanjeSkladista < kolicina)
+		return;
+	for (int i = Max - 1; i >= 0; i--)
+		if (market.Fakture[i] != nullptr && proizvodManipulacije != nullptr) {
+			for (int j = 0; j < market.Fakture[i]->_brojStavki; j++){
+				if (market.Fakture[i]->_stavke[j] != nullptr && strcmp(market.Fakture[i]->_stavke[j]->_proizvod->_naziv, naziv) == 0) {//ukoliko su im nazivi isti
+					market.Fakture[i]->_stavke[j]->_kolicina += kolicina;
+					return;
+				}
+				if (market.Fakture[i]->_stavke[j] != nullptr && strcmp(market.Fakture[i]->_stavke[j]->_proizvod->_naziv, naziv) == 0 && market.Fakture[i]->_stavke[j]->_stornirana == true) {
+					market.Fakture[i]->DodajStavku(proizvodManipulacije, kolicina);
+					proizvodManipulacije->UkloniSaSkladista(kolicina);
+					return;
+				}
+			}
+			market.Fakture[i]->DodajStavku(proizvodManipulacije, kolicina);
+			proizvodManipulacije->UkloniSaSkladista(kolicina);
+		}
+}
+bool storniraj_stavku(Market &market, const char*naziv) {
+	for (int i = 0; i < Max; i++)
+		if (market.Fakture[i] != nullptr)
+			for (int j = 0; j < market.Fakture[i]->_brojStavki; j++)
+			{
+				if (market.Fakture[i]->_stavke[j] != nullptr && strstr(market.Fakture[i]->_stavke[j]->_proizvod->_naziv, naziv) == nullptr) {
+					market.Fakture[i]->_stavke[j]->_proizvod->DodajUSkladiste(market.Fakture[i]->_stavke[j]->_kolicina);
+					market.Fakture[i]->_stavke[j]->_stornirana = true;
+					return true;
+				}
+				if (market.Fakture[i]->_stavke[j] != nullptr && strstr(market.Fakture[i]->_stavke[j]->_proizvod->_naziv, naziv) != nullptr)
+					return false;
+			}
+}
+bool printaj(Market &market) {
+	bool SveStornirane = false;
+	for (int i = Max - 1; i >= 0; i--)
+		if (market.Fakture[i] != nullptr) {
+			char naziv[100];
+			strcpy_s(naziv, 100, "IB170160");
+			strcat_s(naziv, 100, ".txt");
+			ofstream upis(naziv);
+			if (market.Fakture[i]->_brojStavki == 0)
+				return false;
+			cout << crt;
+			upis << crt;
+			cout << "Datum: "; market.Fakture[i]->_datum.Ispis(); cout << crt;
+			upis << "Datum: " << market.Fakture[i]->_datum._dan << "." << market.Fakture[i]->_datum._mjesec << "." << market.Fakture[i]->_datum._godina << crt;
+			cout << "FATURA/RACUN:" << crt;
+			upis << "FATURA/RACUN:" << crt;
+			for (int j = 0; j < market.Fakture[i]->_brojStavki; j++){
+				if (market.Fakture[i]->_stavke[j]->_stornirana)
+					SveStornirane = true;
+				if (SveStornirane)
+					return false;
+				if (market.Fakture[i]->_stavke[j] != nullptr) {
+					market.Fakture[i]->_stavke[j]->Ispis();
+					upis << market.Fakture[i]->_stavke[j]->_proizvod->_naziv << "\t" << market.Fakture[i]->_stavke[j]->_kolicina << "\t" << market.Fakture[i]->_stavke[j]->_proizvod->_cijena << "\t" << market.Fakture[i]->_stavke[j]->GetIznos() << "BAM" << endl;
+				}
+			}
+			return true;
+		}
+	return false;
+}
+void main() {
+
+	Market market;
+
+	dodaj_proizvod(market, "Mlijeko (L)", 1.45, 50);
+	dodaj_proizvod(market, "Mlijeko (L)", 1.45, 5);
+	dodaj_proizvod(market, "Jabuke (kg)", 1.25, 80.4);
+	dodaj_proizvod(market, "Lubenica (kg)", 0.45, 189); 
+
+	kreiraj_fakturu(market, 6, 9, 2017);  
+
+	dodaj_stavku_fakture(market, "Mlijeko (L)", 3);
+	dodaj_stavku_fakture(market, "Mlijeko (L)", 2);
+	dodaj_stavku_fakture(market, "Lubenica (kg)", 5);
+
+	kreiraj_fakturu(market, 7, 9, 2017);
+	dodaj_stavku_fakture(market, "Jabuke (kg)", 5);
+	dodaj_stavku_fakture(market, "Lubenica (kg)", 3);
+
+	if (storniraj_stavku(market, "Lub"))
+		cout << "Stavka uspjesno stornirana!" << endl;
+	if (!storniraj_stavku(market, "TEST"))
+		cout << "Trazena stavka ne postoji na fakturi!" << endl;
+
+	if (printaj(market))
+		cout << "Faktura uspjesno prikazana i sacuvana!" << endl;
+	market.Dealociraj();
+	system("pause>0");
+}

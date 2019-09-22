@@ -1,0 +1,255 @@
+//zadatak
+#include<iostream>
+#include<memory>
+#include<fstream>
+#include<tuple>
+#include<functional>
+using namespace std;
+#pragma warning(disable:4996)
+enum VrstaAktivnosti { Poligon, Gradska, Nocna, Parkiranje };
+const char*AktivnostChar[] = { "Poligon","Gradska","Nocna","Parkiranje" };
+enum Kategorija { A, B, C, D, E };
+const char*KategorijaChar[] = { "A","B","C","D","E" };
+const int maxKategorija = 5;
+
+struct Datum {
+	int * _dan, *_mjesec, *_godina;
+	void Unos(int d, int m, int g) {
+		_dan = new int(d);
+		_mjesec = new int(m);
+		_godina = new int(g);
+	}
+	void Ispis() { cout << *_dan << "/" << *_mjesec << "/" << *_godina << endl; }
+	void Dealociraj() { delete  _dan; delete  _mjesec; delete _godina; }
+	int PretvoriDane() {
+		return *_dan + *_mjesec * 30 + *_godina * 365;
+	}
+};
+struct Aktivnost {
+	unique_ptr<VrstaAktivnosti> _vrsta;
+	Datum _datumIzvrsenja;
+	char * _komentar;
+	int _ocjena;
+	void Unos(VrstaAktivnosti vrsta, Datum * datum, int ocjena, const char * komentar) {
+		_datumIzvrsenja.Unos(*datum->_dan, *datum->_mjesec, *datum->_godina);
+		_ocjena = ocjena;
+		int size = strlen(komentar) + 1;
+		_komentar = new char[size];
+		strcpy_s(_komentar, size, komentar);
+		_vrsta = make_unique<VrstaAktivnosti>(vrsta);
+	}
+	void Ispis() {
+		cout << AktivnostChar[*_vrsta] << " " << _ocjena << " " << _komentar << " ";
+		_datumIzvrsenja.Ispis();
+		cout << endl;
+	}
+	void Dealociraj() {
+		_datumIzvrsenja.Dealociraj();
+		delete[] _komentar; _komentar = nullptr;
+	}
+};
+struct VozackaKategorija {
+	Datum * _datumPolaganja;
+	Kategorija _kategorija;
+	Aktivnost * _listaIzvrsenihAktivnosti;
+	int _trenutnoIzvrsenihAktivnosti;
+	void Unos(Kategorija kategorija) {
+		_listaIzvrsenihAktivnosti = nullptr;
+		_trenutnoIzvrsenihAktivnosti = 0;
+		_datumPolaganja = nullptr;
+		_kategorija = kategorija;
+	}
+	void DodajKategoriju(VozackaKategorija kategorija) {
+		_kategorija = kategorija._kategorija;
+		_listaIzvrsenihAktivnosti = new Aktivnost[kategorija._trenutnoIzvrsenihAktivnosti];
+		for (int i = 0; i < kategorija._trenutnoIzvrsenihAktivnosti; i++)
+			_listaIzvrsenihAktivnosti[i].Unos(*kategorija._listaIzvrsenihAktivnosti[i]._vrsta, &kategorija._listaIzvrsenihAktivnosti[i]._datumIzvrsenja, kategorija._listaIzvrsenihAktivnosti[i]._ocjena, kategorija._listaIzvrsenihAktivnosti[i]._komentar);
+		_trenutnoIzvrsenihAktivnosti = kategorija._trenutnoIzvrsenihAktivnosti;
+		if (kategorija._datumPolaganja != nullptr)
+			DaLiJePolozena();
+	}
+	bool DodajIzvrsenuAktivnost(VrstaAktivnosti vrsta, Datum*datumPolaganja, int ocjena, const char *komantar) {
+		for (int i = 0; i < _trenutnoIzvrsenihAktivnosti; i++)
+			if (*_listaIzvrsenihAktivnosti[i]._vrsta == vrsta && _listaIzvrsenihAktivnosti[i]._datumIzvrsenja.PretvoriDane() == datumPolaganja->PretvoriDane() && _listaIzvrsenihAktivnosti[i]._ocjena > 2)
+				return false;
+		Aktivnost*temp = new Aktivnost[_trenutnoIzvrsenihAktivnosti + 1];
+		for (int i = 0; i < _trenutnoIzvrsenihAktivnosti; i++)
+			temp[i].Unos(*_listaIzvrsenihAktivnosti[i]._vrsta, &_listaIzvrsenihAktivnosti[i]._datumIzvrsenja, _listaIzvrsenihAktivnosti[i]._ocjena, _listaIzvrsenihAktivnosti[i]._komentar);
+		temp[_trenutnoIzvrsenihAktivnosti].Unos(vrsta, datumPolaganja, ocjena, komantar);
+		_listaIzvrsenihAktivnosti = temp;
+		_trenutnoIzvrsenihAktivnosti++;
+		return true;
+	}
+	void Sortiraj() {
+		for (int i = 0; i < _trenutnoIzvrsenihAktivnosti - 1; i++)
+			for (int j = i + 1; j < _trenutnoIzvrsenihAktivnosti; j++)
+				if (_listaIzvrsenihAktivnosti[i]._ocjena > _listaIzvrsenihAktivnosti[j]._ocjena) {
+					Aktivnost temp;
+					temp.Unos(*_listaIzvrsenihAktivnosti[i]._vrsta, &_listaIzvrsenihAktivnosti[i]._datumIzvrsenja, _listaIzvrsenihAktivnosti[i]._ocjena, _listaIzvrsenihAktivnosti[i]._komentar);
+					_listaIzvrsenihAktivnosti[i].Dealociraj();
+					_listaIzvrsenihAktivnosti[i].Unos(*_listaIzvrsenihAktivnosti[j]._vrsta, &_listaIzvrsenihAktivnosti[j]._datumIzvrsenja, _listaIzvrsenihAktivnosti[j]._ocjena, _listaIzvrsenihAktivnosti[j]._komentar);
+					_listaIzvrsenihAktivnosti[j].Dealociraj();
+					_listaIzvrsenihAktivnosti[j].Unos(*temp._vrsta, &temp._datumIzvrsenja, temp._ocjena, temp._komentar);
+					temp.Dealociraj();
+				}
+	}
+	bool DaLiJePolozena() {
+		int brojacPozitivnih[4] = { 0 };
+		int brojacNegativnih[4] = { 0 };
+		Datum datumPolaganja;
+		for (int i = 0; i < _trenutnoIzvrsenihAktivnosti; i++)
+		{
+			if (_listaIzvrsenihAktivnosti[i]._ocjena > 2) {
+				brojacPozitivnih[*_listaIzvrsenihAktivnosti[i]._vrsta]++;
+				datumPolaganja.Unos(*_listaIzvrsenihAktivnosti[i]._datumIzvrsenja._dan, *_listaIzvrsenihAktivnosti[i]._datumIzvrsenja._mjesec, *_listaIzvrsenihAktivnosti[i]._datumIzvrsenja._godina);
+			}
+			if (_listaIzvrsenihAktivnosti[i]._ocjena < 3)
+				brojacNegativnih[*_listaIzvrsenihAktivnosti[i]._vrsta]++;
+		}
+		for (int i = 0; i < 4; i++)
+			if (brojacNegativnih[i] > 3 || brojacPozitivnih[i] < (int)_kategorija + 1)
+				return false;
+		_datumPolaganja = new Datum;
+		_datumPolaganja->Unos(*datumPolaganja._dan, *datumPolaganja._mjesec, *datumPolaganja._godina);
+		return true;
+	}
+
+	float PretragaRekrzivno(const char*rijec, int trenutnoAktivnosti = 0, int brojacUspjesnih = 0, float prosjek = 0) {
+		if (_trenutnoIzvrsenihAktivnosti == trenutnoAktivnosti) {
+			if (brojacUspjesnih == 0)return 0;
+			return (float)prosjek / brojacUspjesnih;
+		}
+		if (_listaIzvrsenihAktivnosti[trenutnoAktivnosti]._ocjena > 2 && _listaIzvrsenihAktivnosti[trenutnoAktivnosti]._komentar != nullptr && strstr(_listaIzvrsenihAktivnosti[trenutnoAktivnosti]._komentar, rijec) == nullptr)
+			return PretragaRekrzivno(rijec, trenutnoAktivnosti + 1, brojacUspjesnih + 1, prosjek + _listaIzvrsenihAktivnosti[trenutnoAktivnosti]._ocjena);
+		return PretragaRekrzivno(rijec, trenutnoAktivnosti + 1, brojacUspjesnih, prosjek);
+	}
+	void Dealociraj() {
+		if (_datumPolaganja != nullptr)
+			_datumPolaganja->Dealociraj();
+		for (size_t i = 0; i < _trenutnoIzvrsenihAktivnosti; i++)
+			_listaIzvrsenihAktivnosti[i].Dealociraj();
+		delete[] _listaIzvrsenihAktivnosti;
+		_listaIzvrsenihAktivnosti = nullptr;
+	}
+	void Ispis() {
+		if (_datumPolaganja != nullptr)
+			_datumPolaganja->Ispis();
+		cout << KategorijaChar[_kategorija] << endl;
+		for (size_t i = 0; i < _trenutnoIzvrsenihAktivnosti; i++)
+			_listaIzvrsenihAktivnosti[i].Ispis();
+	}
+};
+
+struct Kandidat {
+	char * _imePrezime;
+	shared_ptr<VozackaKategorija> _kategorije[maxKategorija];
+	int _trenutnoKategorija;
+	void Unos(const char * imePrezime) {
+		int size = strlen(imePrezime) + 1;
+		_imePrezime = new char[size];
+		strcpy_s(_imePrezime, size, imePrezime);
+		_trenutnoKategorija = 0;
+	}
+
+	bool DodajKategoriju(VozackaKategorija kategorija) {
+
+		auto tacno = [this, kategorija]() {
+			if (_trenutnoKategorija == (int)kategorija._kategorija)
+				return true;
+			return false;
+		};
+		bool daLiJeTacno = tacno();
+		if (!daLiJeTacno)return false;
+		_kategorije[_trenutnoKategorija] = make_shared<VozackaKategorija>();
+		_kategorije[_trenutnoKategorija]->DodajKategoriju(kategorija);
+		_trenutnoKategorija++;
+		return true;
+	}
+	pair<Kategorija, float> GetNajboljuKategoriju() {
+		Kategorija k; float najbolji = 0;
+		for (int i = 0; i < _trenutnoKategorija; i++) {
+			if (_kategorije[i] != nullptr) {
+				float trenutno = 0; int brojac = 0;
+				for (int j = 0; j < _kategorije[i]->_trenutnoIzvrsenihAktivnosti; j++)
+					if (_kategorije[i]->_listaIzvrsenihAktivnosti[j]._ocjena > 2) {
+						brojac++;
+						trenutno += _kategorije[i]->_listaIzvrsenihAktivnosti[j]._ocjena;
+					}
+				trenutno /= brojac;
+				if (trenutno > najbolji) {
+					najbolji = trenutno;
+					k = _kategorije[i]->_kategorija;
+				}
+			}
+		}
+		return pair<Kategorija, float>(k, najbolji);
+	}
+	void Dealociraj() {
+		delete[] _imePrezime; _imePrezime = nullptr;
+		for (size_t i = 0; i < _trenutnoKategorija; i++) {
+			_kategorije[i]->Dealociraj();
+			_kategorije[i].reset();
+		}
+	}
+	void Ispis() {
+		cout << _imePrezime << endl;
+		for (size_t i = 0; i < _trenutnoKategorija; i++)
+			_kategorije[i]->Ispis();
+	}
+};
+
+void main() {
+
+	Datum datumPolaganja1, datumPolaganja2, datumPolaganja3, datumPolaganja4;
+	datumPolaganja1.Unos(10, 6, 2018);
+	datumPolaganja2.Unos(18, 6, 2018);
+	datumPolaganja3.Unos(22, 3, 2018);
+	datumPolaganja4.Unos(28, 7, 2018);
+
+	VozackaKategorija kategorijaA, kategorijaB, kategorijaC;
+	kategorijaA.Unos(A); kategorijaB.Unos(B); kategorijaC.Unos(C);
+
+
+	if (kategorijaA.DodajIzvrsenuAktivnost(Poligon, &datumPolaganja1, 3, "izuzetno dobra orijentacija"))
+		cout << "Aktivnost uspjesno dodana!" << endl;
+	if (kategorijaA.DodajIzvrsenuAktivnost(Gradska, &datumPolaganja1, 2, "nesigurnost u raskrsnicama"))
+		cout << "Aktivnost uspjesno dodana!" << endl;
+	if (kategorijaA.DodajIzvrsenuAktivnost(Gradska, &datumPolaganja2, 4, "raskrsnice savladane"))//datum?
+		cout << "Aktivnost uspjesno dodana!" << endl;
+	if (kategorijaA.DodajIzvrsenuAktivnost(Gradska, &datumPolaganja4, 4, "raskrsnice savladane"))
+		cout << "Aktivnost uspjesno dodana!" << endl;
+
+	kategorijaA.Sortiraj();
+
+
+	if (kategorijaA.DaLiJePolozena())
+		kategorijaA.Ispis();
+
+
+	cout << "Prosjecna ocjena za kategoriju A -> " << kategorijaA.PretragaRekrzivno("nesigurno") << endl;
+
+	kategorijaA.Ispis();
+
+	Kandidat jasmin;
+	jasmin.Unos("Jasmin Azemovic");
+
+	if (jasmin.DodajKategoriju(kategorijaA))
+		cout << "Kategorija uspjesno dodan!" << endl;
+	if (jasmin.DodajKategoriju(kategorijaC))
+		cout << "Kategorija uspjesno dodan!" << endl;
+	if (jasmin.DodajKategoriju(kategorijaB))
+		cout << "Kategorija uspjesno dodan!" << endl;
+
+	float prosjek = 0;
+	Kategorija kategorija;
+	tie(kategorija, prosjek) = jasmin.GetNajboljuKategoriju();
+	cout << "Najbolji rezultat od " << prosjek << " je ostvaren tokom polaganja kategorije " << KategorijaChar[kategorija] << endl;
+
+
+	datumPolaganja1.Dealociraj(), datumPolaganja2.Dealociraj(), datumPolaganja3.Dealociraj(), datumPolaganja4.Dealociraj();
+	kategorijaA.Dealociraj(), kategorijaB.Dealociraj(), kategorijaC.Dealociraj();
+	jasmin.Dealociraj();
+
+	system("pause");
+}
+

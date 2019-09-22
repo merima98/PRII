@@ -1,0 +1,241 @@
+#include <iostream>
+using namespace std;
+#pragma warning(disable:4996)
+const char * crt = "\n-------------------------------------------\n";
+struct Datum {
+	int _dan;
+	int _mjesec;
+	int _godina;
+	void Unos(int d, int m, int g) {
+		_dan = d;
+		_mjesec = m;
+		_godina = g;
+	}
+	void Ispis() {
+		cout << _dan << "." << _mjesec << "." << _godina << " ";
+	}
+};
+struct Student {
+	char _imePrezime[20];
+	int _brojIndeksa;
+	int _polozioECTS;
+
+	void Unos(const char* naziv, float cijena) {
+		strcpy_s(_imePrezime, naziv);
+		_brojIndeksa = cijena;
+		_polozioECTS = 0;
+	}
+	void DodajECTS(float ects) {
+		_polozioECTS += ects;
+	}
+	void UmanjiECTS(float ects) {
+		_polozioECTS += ects;
+	}
+	void Ispis() {
+		cout << _imePrezime << ", Indeks: " << _brojIndeksa << ", ECTS: " << _polozioECTS << " " << endl;
+	}
+};
+
+struct ZapisnikStavka {
+	int _ocjena;
+	Student* _student; 
+	bool _ponisteno;
+	bool _komisijskoPolaganje;
+
+	void Unos(Student* proizvod, int ocjena, bool komisijskoPolaganje) {
+		_ocjena = ocjena;
+		_student = proizvod;
+		_komisijskoPolaganje = komisijskoPolaganje;
+		_ponisteno = false;
+	}
+
+	void Ispis() {
+		cout << _student->_imePrezime << "\t" << _ocjena << "\t" << _student->_brojIndeksa << "\t";
+		if (_ponisteno)
+			cout << " Ponisteno";
+		cout << endl;
+	}
+};
+struct IspitniZapisnik {
+	Datum _datum;
+	ZapisnikStavka ** _stavke;
+	int _brojStavki;
+	int _ects;
+	char _predmet[20];
+	void Unos(Datum datum, const char* predmet, int ects) {
+		_datum = datum;
+		_brojStavki = 0;
+		_stavke = nullptr;
+		_ects = ects;
+		strcpy_s(_predmet, predmet);
+	}
+	void DodajStavku(Student *student, int ocjena, bool komisijkoPolaganje) {
+		ZapisnikStavka**temp = new ZapisnikStavka*[_brojStavki + 1];
+		for (int i = 0; i < _brojStavki; i++)
+		{
+			temp[i] = new ZapisnikStavka;
+			temp[i]->Unos(_stavke[i]->_student, _stavke[i]->_ocjena, _stavke[i]->_komisijskoPolaganje);
+		}
+		temp[_brojStavki] = new ZapisnikStavka;
+		temp[_brojStavki]->Unos(student, ocjena, komisijkoPolaganje);
+		_stavke = temp;
+		_brojStavki++;
+	}
+	float GetProsjecnaOcjena() {
+		return 0;
+	}
+};
+const int Max = 100;
+
+struct Fakultet {
+	Student* Studenti[Max] = { NULL };
+	IspitniZapisnik* Zapisnici[Max] = { NULL };
+
+	void Dealociraj() {
+		for (size_t i = 0; i < Max; i++) {
+			delete Studenti[i]; Studenti[i] = NULL;
+		}
+		for (size_t i = 0; i < Max; i++) {
+			delete Zapisnici[i]; Zapisnici[i] = NULL;
+		}
+	}
+};
+void dodaj_student(Fakultet &fakultet, const char*imePrezime, float brojIndeksa) {
+	for (int i = 0; i < Max; i++)
+	{
+		if (fakultet.Studenti[i] == nullptr) {
+			fakultet.Studenti[i] = new Student;
+			fakultet.Studenti[i]->Unos(imePrezime, brojIndeksa);
+			return;
+		}
+		else if (fakultet.Studenti[i]->_brojIndeksa == brojIndeksa)
+			return; 
+	}
+}
+void kreiraj_zapisnik(Fakultet&fakultet, int dan, int mjesec, int godina, const char*predmet, int ectsPoeni) {
+	for (int i = 0; i < Max; i++)
+	{
+		if (fakultet.Zapisnici[i] == nullptr) {
+			fakultet.Zapisnici[i] = new IspitniZapisnik;
+			Datum d;
+			d.Unos(dan, mjesec, godina);
+			fakultet.Zapisnici[i]->Unos(d, predmet, ectsPoeni);
+			return;
+		}
+	}
+}
+bool dodaj_stavku_na_zapisnik(Fakultet&fakultet, int brojIndeksa, int ocjena) {
+	Student *studentSaIndeksom = nullptr;
+	for (int i = 0; i < Max; i++)
+	{
+		if (fakultet.Studenti[i] != nullptr && fakultet.Studenti[i]->_brojIndeksa == brojIndeksa) {
+			studentSaIndeksom = fakultet.Studenti[i];
+			break;
+		}
+	}
+	for (int i = Max - 1; i >= 0; i--)
+	{
+		if (fakultet.Zapisnici[i] != nullptr && studentSaIndeksom != nullptr) {
+			for (int j = 0; j < fakultet.Zapisnici[i]->_brojStavki; j++)
+			{
+				if (fakultet.Zapisnici[i]->_stavke[j]->_student->_brojIndeksa == brojIndeksa) {
+					fakultet.Zapisnici[i]->_stavke[j]->_ocjena = ocjena;
+					if (ocjena > 5)
+						studentSaIndeksom->DodajECTS(fakultet.Zapisnici[i]->_ects);
+					return false;
+				}
+			}
+			fakultet.Zapisnici[i]->DodajStavku(studentSaIndeksom, ocjena, false);
+			if (ocjena > 5)
+				studentSaIndeksom->DodajECTS(fakultet.Zapisnici[i]->_ects);
+			return true;
+		}
+	}
+	return false;
+}
+bool ponisti_stavku_rezultat(Fakultet&fakultet, int brojIndeksa) {
+	Student*saIndeksom = nullptr;
+	for (int i = 0; i < Max; i++)
+	{
+		if (fakultet.Studenti[i] != nullptr && fakultet.Studenti[i]->_brojIndeksa == brojIndeksa) {
+			saIndeksom = fakultet.Studenti[i];
+			break;
+		}
+	}
+	for (int i = Max - 1; i >= 0; i--)
+	{
+		if (fakultet.Zapisnici[i] != nullptr && saIndeksom != nullptr) {
+			for (int j = 0; j < fakultet.Zapisnici[i]->_brojStavki; j++)
+			{
+				fakultet.Zapisnici[i]->_stavke[j]->_ponisteno = true;
+			}
+			saIndeksom->UmanjiECTS(fakultet.Zapisnici[i]->_ects);
+			return true;
+		}
+	}
+	return false;
+
+}
+bool printaj(Fakultet fakultet) {
+	bool svePonistene = true;
+	for (int i = 0; i < Max; i++)
+	{
+		if (fakultet.Zapisnici[i] != nullptr) {
+			if (fakultet.Zapisnici[i]->_brojStavki == 0)
+				return false;
+			cout << "Datum ispita: "; fakultet.Zapisnici[i]->_datum.Ispis(); cout << endl;
+			cout << "Predmet: " << fakultet.Zapisnici[i]->_predmet << endl;
+			cout << "IZVJESTAJI O ODRZANOM ISPITU: " << endl;
+			cout << "Br indeksa    Ime i prezime    Komisijsko***    Ocjena" << endl;
+			for (int j = 0; j < fakultet.Zapisnici[i]->_brojStavki; j++)
+			{
+				cout << fakultet.Zapisnici[i]->_stavke[j]->_student->_brojIndeksa << "    " << fakultet.Zapisnici[i]->_stavke[j]->_student->_imePrezime << "    ";
+				if (fakultet.Zapisnici[i]->_stavke[j]->_komisijskoPolaganje)
+					cout << "DA    ";
+				else
+					cout << "NE    ";
+				cout << fakultet.Zapisnici[i]->_stavke[j]->_ocjena << endl;
+			}
+			return true;
+		}
+	}
+}
+
+void main() {
+	Fakultet fakultet;
+
+	
+	dodaj_student(fakultet, "A. Joldic", 16001);
+	dodaj_student(fakultet, "D. Music", 15251);
+	dodaj_student(fakultet, "E. Babovic	", 16014);
+	dodaj_student(fakultet, "E. Junuz", 16015);
+	dodaj_student(fakultet, "J. Azemovic", 16014);
+	kreiraj_zapisnik(fakultet, 6, 9, 2017, "Programiranje 2", 7);
+
+
+	if (dodaj_stavku_na_zapisnik(fakultet, 16001, 5))
+		cout << "Stavka (rezultat) uspjesno dodata!" << endl;
+
+	if (!dodaj_stavku_na_zapisnik(fakultet, 16001, 6))
+		cout << "Student vec dodat na zapisnik. Ocjena je ispravljena!" << endl;
+
+	dodaj_stavku_na_zapisnik(fakultet, 15251, 5);
+	dodaj_stavku_na_zapisnik(fakultet, 16015, 6);
+	dodaj_stavku_na_zapisnik(fakultet, 16014, 8);
+
+	kreiraj_zapisnik(fakultet, 7, 9, 2017, "Racunarske mreze", 5);
+	dodaj_stavku_na_zapisnik(fakultet, 16015, 5);
+	dodaj_stavku_na_zapisnik(fakultet, 16014, 10);
+
+	if (ponisti_stavku_rezultat(fakultet, 16001))
+		cout << "Stavka (rezultat) uspjesno ponisten!" << endl;
+
+	if (!ponisti_stavku_rezultat(fakultet, 19001))
+		cout << "Student nije pronadjen!" << endl;
+
+	if (printaj(fakultet))
+		cout << "Ispitni zapisnik uspjesno prikazan i spasen u fajl!" << endl;
+	fakultet.Dealociraj();
+
+	system("pause>0");
+}
