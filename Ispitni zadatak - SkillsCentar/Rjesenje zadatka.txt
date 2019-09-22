@@ -1,0 +1,303 @@
+#include <iostream>
+#include<memory>
+#include<fstream>
+#include<tuple>
+using namespace std;
+
+enum enumKursevi { HtmlCSSJavaScript, SoftwareEngeneeringFundamentals, MasteringSQL, WindowsSecurity };
+const char *KursChar[] = { "HtmlCSSJavaScript","SoftwareEngeneeringFundamentals","MasteringSQL","WindowsSecurity" };
+const char *crt = "\n--------------------------------------------\n";
+
+struct Datum
+{
+	int * _dan, *_mjesec, *_godina;
+	void Unos(int d, int m, int g){
+		_dan = new int(d);
+		_mjesec = new int(m);
+		_godina = new int(g);
+	}
+	void Ispis() { cout << *_dan << "/" << *_mjesec << "/" << *_godina; }
+	void Dealociraj() { delete _dan; delete _mjesec; delete _godina; }
+	int PretvorDane() {
+		return *_dan + *_mjesec * 30 + *_godina * 365;
+	}
+};
+
+struct Kurs
+{
+	enumKursevi _kurs;
+	Datum * _pocetak;
+	Datum * _kraj;
+	char * _imePredavaca;
+	float _cijenaKursa;
+
+	void Unos(enumKursevi kurs, Datum pocetak, Datum kraj, const  char * imePredavaca, float cijenaKursa) {
+		_kurs = kurs;
+		_pocetak = new Datum();
+		_pocetak->Unos(*pocetak._dan, *pocetak._mjesec, *pocetak._godina);
+		_kraj = new Datum;
+		_kraj->Unos(*kraj._dan, *kraj._mjesec, *kraj._godina);
+		int size = strlen(imePredavaca) + 1;
+		_imePredavaca = new char[size];
+		strcpy_s(_imePredavaca, size, imePredavaca);
+		_cijenaKursa = cijenaKursa;
+	}
+	void Ispis(){
+		cout << KursChar[_kurs] << " " << _imePredavaca << " " << _cijenaKursa << " (";
+		_pocetak->Ispis(); cout << " - "; _kraj->Ispis(); cout << ")" << endl;
+	}
+	void Dealociraj(){
+		delete[] _imePredavaca; _imePredavaca = nullptr;
+		_pocetak->Dealociraj();
+		_kraj->Dealociraj();
+		delete _pocetak; _pocetak = nullptr;
+		delete _kraj; _kraj = nullptr;
+	}
+};
+struct Polaznik
+{
+	char * _imePrezime;
+	Datum * _datumRodjenja;
+	void Unos(const char * imePrezime, Datum datumRodjenja){
+		int size = strlen(imePrezime) + 1;
+		_imePrezime = new char[size];
+		strcpy_s(_imePrezime, size, imePrezime);
+		_datumRodjenja = new Datum();
+		_datumRodjenja->Unos(*datumRodjenja._dan, *datumRodjenja._mjesec, *datumRodjenja._godina);
+	}
+	void Dealociraj(){
+		delete[] _imePrezime; _imePrezime = nullptr;
+		delete _datumRodjenja; _datumRodjenja = nullptr;
+	}
+	void Ispis() { cout << _imePrezime << "("; _datumRodjenja->Ispis(); cout << ")"; }
+};
+struct Prijava{
+	Polaznik * _polaznik; 
+	float * _uplaceniIznos;
+	int _trenutnoPolaznika;
+	Kurs * _kurs;
+	void Unos(Kurs*kurs) {
+		_polaznik = nullptr;
+		_uplaceniIznos = new float(0);
+		_trenutnoPolaznika = 0;
+		_kurs = kurs;
+	}
+	void Dealociraj() {
+		for (int i = 0; i < _trenutnoPolaznika; i++)
+			_polaznik[i].Dealociraj();
+		delete[]_uplaceniIznos; _uplaceniIznos = nullptr;
+	}
+	void Ispis() {
+		_kurs->Ispis();
+		for (int i = 0; i < _trenutnoPolaznika; i++) {
+			_polaznik[i].Ispis();
+			cout << " UPLACENI IZNOS: " << _uplaceniIznos[i] << endl;
+		}
+		cout << crt;
+	}
+	bool DodajPolaznika(Polaznik polaznik, float uplata) {
+		for (int i = 0; i < _trenutnoPolaznika; i++) {
+			if (_trenutnoPolaznika >= 2 && _trenutnoPolaznika <= 3)
+				_kurs->_cijenaKursa = _kurs->_cijenaKursa*0.1;
+			if (_trenutnoPolaznika > 3)
+				_kurs->_cijenaKursa = _kurs->_cijenaKursa*0.15;
+		}
+		if (uplata < 1000 / 2)
+			return false;
+		Polaznik*temp = new Polaznik[_trenutnoPolaznika + 1];
+		float*iznos = new float[_trenutnoPolaznika + 1];
+		for (int i = 0; i < _trenutnoPolaznika; i++) {
+			temp[i].Unos(_polaznik[i]._imePrezime, *_polaznik[i]._datumRodjenja);
+			iznos[i] = _uplaceniIznos[i];
+		}
+		temp[_trenutnoPolaznika].Unos(polaznik._imePrezime, *polaznik._datumRodjenja);
+		iznos[_trenutnoPolaznika] = uplata;
+		_polaznik = temp;
+		_uplaceniIznos = iznos;
+		_trenutnoPolaznika++;
+		return true;
+	}
+	bool DodajUplatu(Polaznik polaznik, float upalta) {
+		for (int i = 0; i < _trenutnoPolaznika; i++)
+			if (strcmp(_polaznik[i]._imePrezime, polaznik._imePrezime) == 0) {
+				_uplaceniIznos[i] += upalta;
+				return true;
+			}
+		return false;
+	}
+	float StatusUplate(Polaznik polaznik) {
+		float vratiti = 0;
+		for (int i = 0; i < _trenutnoPolaznika; i++)
+			if (strcmp(_polaznik[i]._imePrezime, polaznik._imePrezime) == 0)
+				vratiti = _uplaceniIznos[i] - _kurs->_cijenaKursa;
+		return vratiti;
+	}
+};
+
+struct SkillsCentar{
+	char * _nazivCentra;
+	Kurs * _kursevi[50];
+	int _trenutnoKurseva;
+	Prijava * _prijave;
+	int _trenutnoPrijava;
+
+	void Unos(const char *naziv) {
+		_nazivCentra = new char[strlen(naziv) + 1];
+		strcpy_s(_nazivCentra, strlen(naziv) + 1, naziv);
+		for (int i = 0; i < 50; i++)
+			_kursevi[i] = nullptr;
+		_trenutnoKurseva = 0;
+		_prijave = nullptr;
+		_trenutnoPrijava = 0;
+	}
+	void Dealociraj() {
+		delete[]_nazivCentra; _nazivCentra = nullptr;
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			_kursevi[i]->Dealociraj();
+		for (int i = 0; i < _trenutnoPrijava; i++)
+			_prijave[i].Dealociraj();
+	}
+	bool DodajKurs(Kurs kurs) {
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			if (_kursevi[i]->_kurs == kurs._kurs && kurs._pocetak->PretvorDane() - _kursevi[i]->_kraj->PretvorDane() < 15)
+				return false;
+		_kursevi[_trenutnoKurseva] = new Kurs;
+		_kursevi[_trenutnoKurseva]->Unos(kurs._kurs, *kurs._pocetak, *kurs._kraj, kurs._imePredavaca, kurs._cijenaKursa);
+		_trenutnoKurseva++;
+		return true;
+	}
+	bool DodajPrijavu(Prijava prijava) {
+		Prijava *temp = new Prijava[_trenutnoPrijava + 1];
+		for (int i = 0; i < _trenutnoPrijava; i++)
+			temp[i].Unos(_prijave[i]._kurs);
+		temp[_trenutnoPrijava].Unos(prijava._kurs);
+		_prijave = temp;
+		_trenutnoPrijava++;
+		return true;
+	}
+	Polaznik * PolazniciDugovanja(int &brojPolaznika) {
+		Polaznik*p = new Polaznik[brojPolaznika];
+		brojPolaznika = 0;
+		for (int i = 0; i < _trenutnoPrijava; i++)
+			for (int j = 0; j < _prijave[i]._trenutnoPolaznika; j++)
+				if (_prijave[i]._kurs->_cijenaKursa - _prijave[i]._uplaceniIznos[j] > 0)
+					p[brojPolaznika++] = _prijave[i]._polaznik[j];
+		return p;
+	}
+	void Ispis() {
+		for (int i = 0; i < _trenutnoPrijava - 1; i++)
+			for (int j = i + 1; j < _trenutnoPrijava; j++)
+				for (int k = 0; k < _prijave[i]._trenutnoPolaznika; k++)
+					if (_prijave[i]._kurs->_cijenaKursa - _prijave[i]._uplaceniIznos[k] > _prijave[j]._kurs->_cijenaKursa - _prijave[j]._uplaceniIznos[k]) {
+						Prijava temp;
+						temp = _prijave[i];
+						_prijave[i] = _prijave[j];
+						_prijave[j] = temp;
+					}
+		cout << "NAZIV CENTRA: " << _nazivCentra << crt;
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			_kursevi[i]->Ispis();
+		cout << crt;
+		for (int i = 0; i < _trenutnoPrijava; i++)
+			_prijave[i].Ispis();
+	}
+};
+float PretragaRekurzivno(SkillsCentar centar, float dug = 0, int trenutnoPolaganja = 0) {
+	if (centar._trenutnoPrijava == trenutnoPolaganja)
+		return dug;
+	float najvece = 0;
+	for (int i = 0; i < centar._prijave[trenutnoPolaganja]._trenutnoPolaznika; i++) {
+		float trenutno = 0;
+		trenutno = centar._prijave[trenutnoPolaganja]._kurs->_cijenaKursa - centar._prijave[trenutnoPolaganja]._uplaceniIznos[i];
+		if (trenutno > najvece)
+			najvece = trenutno;
+	}
+	if (najvece > dug)
+		return PretragaRekurzivno(centar, najvece, trenutnoPolaganja + 1);
+	return PretragaRekurzivno(centar, dug, trenutnoPolaganja + 1);
+}
+void main() {
+	Datum datum1, datum2, datum3, datum4, datum5, datum6, rodjendan;
+	datum1.Unos(26, 11, 2015);
+	datum2.Unos(29, 5, 2016);
+	datum3.Unos(5, 6, 2016);
+	datum4.Unos(15, 8, 2016);
+	datum5.Unos(13, 7, 2016);
+	datum6.Unos(22, 9, 2016);
+	rodjendan.Unos(15, 6, 1995);
+
+	Kurs softverski, html, sql, security;
+	softverski.Unos(SoftwareEngeneeringFundamentals, datum1, datum2, "Emina Junuz", 1800);
+	html.Unos(HtmlCSSJavaScript, datum2, datum3, "Larisa Tipura", 1000);
+	sql.Unos(MasteringSQL, datum3, datum4, "Jasmin Azemovic", 2230);
+	security.Unos(WindowsSecurity, datum3, datum4, "Adel Handzic", 4000);
+
+	Polaznik denis, zanin, indira, dubravka;
+	denis.Unos("Denis Music", rodjendan);
+	zanin.Unos("Zanin Vejzovic", rodjendan);
+	indira.Unos("Indira Hamulic", rodjendan);
+	dubravka.Unos("Dubravka Plosko", rodjendan);
+
+
+	Prijava denisZaninDubravkaHtml, zaninIndiraHtml, indiraSql;
+	denisZaninDubravkaHtml.Unos(&html);
+	if (denisZaninDubravkaHtml.DodajPolaznika(denis, 700))
+		cout << "Polaznik uspjesno dodan!" << endl;	//											
+
+	if (denisZaninDubravkaHtml.DodajPolaznika(zanin, 650))
+		cout << "Polaznik uspjesno dodan!" << endl;
+	if (denisZaninDubravkaHtml.DodajPolaznika(zanin, 650))
+		cout << "Polaznik uspjesno dodan!" << endl;
+	if (denisZaninDubravkaHtml.DodajPolaznika(dubravka, 430))
+		cout << "Polaznik uspjesno dodan!" << endl;
+
+	if (denisZaninDubravkaHtml.DodajUplatu(zanin, 200))
+		cout << "Uplata uspjesno dodana" << endl;
+
+	zaninIndiraHtml.Unos(&html);
+	if (zaninIndiraHtml.DodajPolaznika(zanin, 800))
+		cout << "Polaznik uspjesno dodan!" << endl;
+	if (zaninIndiraHtml.DodajPolaznika(indira, 750))
+		cout << "Polaznik uspjesno dodan!" << endl;
+
+	float stanjeUplate = denisZaninDubravkaHtml.StatusUplate(zanin);
+	cout << "Polaznik "; zanin.Ispis();
+	if (stanjeUplate > 0)
+		cout << " je u pretplati " << stanjeUplate << " KM" << endl;
+	else
+		cout << " je duzan uplatiti " << stanjeUplate * -1 << " KM" << endl;
+
+	SkillsCentar mostar;
+	mostar.Unos("Skills Center Mostar");
+
+	if (mostar.DodajKurs(softverski)){
+		cout << crt << "KURS USPJESNO REGISTROVAN" << crt;
+		softverski.Ispis();
+		cout << crt;
+	}
+	if (mostar.DodajPrijavu(denisZaninDubravkaHtml))
+	{
+		cout << crt << "PRIJAVA EVIDENTIRANA" << crt;
+		denisZaninDubravkaHtml.Ispis();
+	}
+	if (mostar.DodajPrijavu(zaninIndiraHtml)){
+		cout << crt << "PRIJAVA EVIDENTIRANA" << crt;
+		zaninIndiraHtml.Ispis();
+	}
+	int brojPolaznika = 0;
+	Polaznik * polazniciDugovanja = mostar.PolazniciDugovanja(brojPolaznika);
+
+	cout << "Pronadjeno " << brojPolaznika << " polaznika koji nisu kompletirali svoje uplate --->>> ";
+	for (size_t i = 0; i < brojPolaznika; i++)
+		polazniciDugovanja[i].Ispis();
+
+	cout << "Najveci dug iznosi " << PretragaRekurzivno(mostar) << endl;
+	mostar.Ispis();
+
+	datum1.Dealociraj(), datum2.Dealociraj(), datum3.Dealociraj(), datum4.Dealociraj(), datum5.Dealociraj(), datum6.Dealociraj(), rodjendan.Dealociraj();
+	softverski.Dealociraj(), html.Dealociraj(), sql.Dealociraj(), security.Dealociraj();
+	denis.Dealociraj(), zanin.Dealociraj(), indira.Dealociraj(), dubravka.Dealociraj();
+	denisZaninDubravkaHtml.Dealociraj(), zaninIndiraHtml.Dealociraj();
+	mostar.Dealociraj();
+	system("pause");
+}

@@ -1,0 +1,132 @@
+#include <iostream>
+#include<iomanip>
+#include<tuple>
+const char * crt = "\n-------------------------------------\n";
+using namespace std;
+
+struct Putnik {
+	char * _imePrezime;
+	char _ozankaSjedista[4]; 
+	void Unos(const char*imePrezime, const char*oznaka) {
+		_imePrezime = new char[strlen(imePrezime) + 1];
+		strcpy_s(_imePrezime, strlen(imePrezime) + 1, imePrezime);
+		strcpy_s(_ozankaSjedista, 4, oznaka);
+	}
+};
+
+struct Let {
+	char * _relacija;
+	Putnik * _putnici;
+	int _trenutnoPutnika;
+	int _brojRedovaUAvionu;
+	int _brojKolonaUAvionu;
+};
+
+void Dealociraj(Let & let) {
+	delete[] let._relacija; let._relacija = nullptr;
+	for (size_t i = 0; i < let._trenutnoPutnika; i++) {
+		delete[] let._putnici[i]._imePrezime;
+		let._putnici[i]._imePrezime = nullptr;
+	}
+	delete[] let._putnici;
+	let._putnici = nullptr;
+}
+void Unos(Let&mostarSarajevo, const char*relacija, int red, int kolona) {
+	mostarSarajevo._relacija = new char[strlen(relacija) + 1];
+	strcpy_s(mostarSarajevo._relacija, strlen(relacija) + 1, relacija);
+	mostarSarajevo._putnici = nullptr;
+	mostarSarajevo._trenutnoPutnika = 0;
+	mostarSarajevo._brojRedovaUAvionu = red;
+	mostarSarajevo._brojKolonaUAvionu = kolona;
+}
+pair<int, int> GetPozicijuUReduIKoloni(const char*oznaka) {
+	char redChar[3];
+	strncpy_s(redChar, 3, oznaka, 2);
+	char kolonaChar; kolonaChar = oznaka[2];
+	int red, kolona;
+	red = atoi(redChar) - 1;
+	kolona = (int)toupper(kolonaChar) - 65;
+	return pair<int, int>(red, kolona);
+}
+Putnik GetNovogPutnika(const char *oznaka, const char*imePrezime) {
+	Putnik p;
+	p._imePrezime = new char[strlen(imePrezime) + 1];
+	strcpy_s(p._imePrezime, strlen(imePrezime) + 1, imePrezime);
+	strcpy_s(p._ozankaSjedista, 4, oznaka);
+	return p;
+}
+bool DodajPutnika(Let&mostarSarajevo, Putnik putnik) {
+	for (int i = 0; i < mostarSarajevo._trenutnoPutnika; i++) {
+		if (strcmp(mostarSarajevo._putnici[i]._imePrezime, putnik._imePrezime) == 0)
+			return false;
+		if (strcmp(mostarSarajevo._putnici[i]._ozankaSjedista, putnik._ozankaSjedista) == 0)
+			return false;
+	}
+	pair<int, int>pozicija = GetPozicijuUReduIKoloni(putnik._ozankaSjedista);
+	if (pozicija.first > mostarSarajevo._brojRedovaUAvionu || pozicija.second > mostarSarajevo._brojKolonaUAvionu)
+		return false;
+	Putnik*temp = new Putnik[mostarSarajevo._trenutnoPutnika + 1];
+	for (int i = 0; i < mostarSarajevo._trenutnoPutnika; i++)
+		temp[i].Unos(mostarSarajevo._putnici[i]._imePrezime, mostarSarajevo._putnici[i]._ozankaSjedista);
+	temp[mostarSarajevo._trenutnoPutnika].Unos(putnik._imePrezime, putnik._ozankaSjedista);
+	mostarSarajevo._putnici = temp;
+	mostarSarajevo._trenutnoPutnika++;
+	return true;
+}
+int rekBrojacKaraktera(Let mostaSarajevo, int trenutnoPutnika, int maxKarakera) {
+	if (trenutnoPutnika - 1 < 0)
+		return maxKarakera;
+	if (strlen(mostaSarajevo._putnici[trenutnoPutnika - 1]._imePrezime) > maxKarakera)
+		return rekBrojacKaraktera(mostaSarajevo, trenutnoPutnika - 1, strlen(mostaSarajevo._putnici[trenutnoPutnika - 1]._imePrezime));
+	return rekBrojacKaraktera(mostaSarajevo, trenutnoPutnika - 1, maxKarakera);
+}
+void PrikaziRasporedSjedenja(Let mostarSarajevo) {
+	int maxBrojKaraktera = rekBrojacKaraktera(mostarSarajevo, mostarSarajevo._trenutnoPutnika, 0);
+	for (int i = 0; i < mostarSarajevo._brojRedovaUAvionu; i++){
+		for (int j = 0; j < mostarSarajevo._brojKolonaUAvionu*maxBrojKaraktera + 5; j++)
+			cout << "=";
+		cout << endl;
+		cout << "|";
+		for (int j = 0; j < mostarSarajevo._brojKolonaUAvionu; j++){
+			bool ispis = true;
+			pair<int, int>pozicija;
+			for (int k = 0; k < mostarSarajevo._trenutnoPutnika; k++){
+				pozicija = GetPozicijuUReduIKoloni(mostarSarajevo._putnici[k]._ozankaSjedista);
+				if (pozicija.first == i && pozicija.second == j) {
+					cout << setw(maxBrojKaraktera) << mostarSarajevo._putnici[k]._imePrezime << "|" << "";
+					ispis = false;
+				}
+			}
+			if (ispis)
+				cout << setw(maxBrojKaraktera) << "" << "|";
+		}
+		cout << endl;
+	}
+	for (int i = 0; i < mostarSarajevo._brojKolonaUAvionu*maxBrojKaraktera + 5; i++)
+		cout << "=";
+	cout << endl;
+}
+int main() {
+	int oznakaR = 0, oznakaK = 0;
+	Let mostar_sarajevo;
+	Unos(mostar_sarajevo, "Mostar -> Sarajevo", 10, 4);
+	tie(oznakaR, oznakaK) = GetPozicijuUReduIKoloni("15B");
+	cout << crt << "GetPozicijuUReduIKoloni(15B) ->" << oznakaR << "/" << oznakaK << endl;
+	tie(oznakaR, oznakaK) = GetPozicijuUReduIKoloni("01B");
+	cout << "GetPozicijuUReduIKoloni(01B) ->" << oznakaR << "/" << oznakaK << crt;
+
+	if (DodajPutnika(mostar_sarajevo, GetNovogPutnika("01A", "Denis Music")))
+		cout << crt << "Putnik uspjesno dodan!" << crt;
+	if (DodajPutnika(mostar_sarajevo, GetNovogPutnika("07C", "Zanin Vejzovic")))
+		cout << crt << "Putnik uspjesno dodan!" << crt;
+	if (DodajPutnika(mostar_sarajevo, GetNovogPutnika("10D", "Adel Handzic")))
+		cout << crt << "Putnik uspjesno dodan!" << crt;
+	PrikaziRasporedSjedenja(mostar_sarajevo);
+
+	cout << crt << "Maksimalna broj karaktera u imenu i prezimenu putnika je -> " << rekBrojacKaraktera(mostar_sarajevo,
+	mostar_sarajevo._trenutnoPutnika, 0) << crt; 
+	Dealociraj(mostar_sarajevo);
+	system("pause>0");
+	return 0;
+}
+

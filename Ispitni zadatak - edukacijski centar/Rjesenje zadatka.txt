@@ -1,0 +1,250 @@
+#pragma warning(disable:4996)
+#include<iostream>
+#include<memory>
+#include<fstream>
+#include<tuple>
+using namespace std;
+
+enum enumPredmeti { Matematika, Historija, Geografia, Hemija, Biologija, Engleski };
+const char * CharPredmeti[] = { "Matematika","Historija","Geografia","Hemija","Biologija","Engleski" };
+enum enumRazredi { I, II, III, IV };
+const char *CharRazredi[] = { "I","II","III","IV" };
+const char *crt = "\n--------------------------------------------\n";
+
+struct Datum {
+	int * _dan, *_mjesec, *_godina;
+	void Unos(int d, int m, int g) {
+		_dan = new int(d);
+		_mjesec = new int(m);
+		_godina = new int(g);
+	}
+	void Ispis() { cout << *_dan << "/" << *_mjesec << "/" << *_godina; }
+	void Dealociraj() { delete _dan; delete _mjesec; delete _godina; }
+	int PretvoriDane() {
+		return *_dan + *_mjesec * 30 + *_godina * 365;
+	}
+};
+
+struct Kurs {
+	enumPredmeti _predmet;
+	enumRazredi _razredi;
+	Datum * _pocetak;
+	Datum * _kraj;
+	char * _imePredavaca;
+	void Unos(enumPredmeti predmet, enumRazredi razred, Datum pocetak, Datum kraj, const char * imePredavaca) {
+		_predmet = predmet;
+		_razredi = razred;
+		_pocetak = new Datum;
+		_pocetak->Unos(*pocetak._dan, *pocetak._mjesec, *pocetak._godina);
+		_kraj = new Datum;
+		_kraj->Unos(*kraj._dan, *kraj._mjesec, *kraj._godina);
+		int size = strlen(imePredavaca) + 1;
+		_imePredavaca = new char[size];
+		strcpy_s(_imePredavaca, size, imePredavaca);
+
+	}
+	void Ispis() {
+		cout << CharPredmeti[_predmet]; cout << crt;
+		cout << CharRazredi[_razredi]; cout << crt; cout << "POCETAK: ";
+		_pocetak->Ispis(); cout << crt; cout << "KRAJ: "; _kraj->Ispis(); cout << crt;
+		cout << "IME PREDAVACA: " << _imePredavaca;
+
+	}
+	void Dealociraj() {
+		delete[] _imePredavaca; _imePredavaca = nullptr;
+		_pocetak->Dealociraj();
+		_kraj->Dealociraj();
+	}
+};
+struct Polaznik {
+	Datum * _datumRodjenja;
+	char * _imePrezime;
+	void Unos(Datum datumRodjenja, const char * imePrezime) {
+		int size = strlen(imePrezime) + 1;
+		_imePrezime = new char[size];
+		strcpy_s(_imePrezime, size, imePrezime);
+		_datumRodjenja = new Datum;
+		_datumRodjenja->Unos(*datumRodjenja._dan, *datumRodjenja._mjesec, *datumRodjenja._godina);
+	}
+	void Dealociraj() {
+		delete[] _imePrezime; _imePrezime = nullptr;
+	}
+	void Ispis() {
+		cout << crt; cout << "DATUM RODJENJA: "; _datumRodjenja->Ispis();
+		cout << crt; cout << "IME I PREZIME: " << _imePrezime; cout << crt;
+	}
+};
+struct Polaganja {
+	Polaznik * _polaznik;
+	Kurs * _kurs;
+	Datum * _datumPolaganja;
+	int _ocjena; 
+	void Unos(Polaznik polaznik, Kurs kurs, Datum datumPolaganja, int ocjena) {
+		_polaznik = new Polaznik;
+		_polaznik->Unos(*polaznik._datumRodjenja, polaznik._imePrezime);
+		_kurs = new Kurs;
+		_kurs->Unos(kurs._predmet, kurs._razredi, *kurs._pocetak, *kurs._kraj, kurs._imePredavaca);
+		_datumPolaganja = new Datum;
+		_datumPolaganja->Unos(*datumPolaganja._dan, *datumPolaganja._mjesec, *datumPolaganja._godina);
+		_ocjena = ocjena;
+	}
+	void Dealociraj() {
+		_polaznik->Dealociraj();
+		_kurs->Dealociraj();
+		_datumPolaganja->Dealociraj();
+	}
+	void Ispis() {
+		_polaznik->Ispis();
+		_kurs->Ispis();
+		_datumPolaganja->Ispis();
+		cout << crt; cout << "OCJENA: " << _ocjena << crt;
+	}
+
+};
+
+struct EdukacijskiCentar {
+	char * _nazivCentra;
+	Kurs * _kursevi[50];
+	int _trenutnoKurseva;
+	Polaganja * _polaganja;
+	int _trenutnoPolaganja;
+	void Unos(const char *nazivCentra) {
+		_nazivCentra = new char[strlen(nazivCentra) + 1];
+		strcpy_s(_nazivCentra, strlen(nazivCentra) + 1, nazivCentra);
+		for (int i = 0; i < 50; i++)
+			_kursevi[i] = nullptr;
+		_trenutnoKurseva = 0;
+		_polaganja = nullptr;
+		_trenutnoPolaganja = 0;
+	}
+	void Dealociraj() {
+		delete[]_nazivCentra; _nazivCentra = nullptr;
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			_kursevi[i]->Dealociraj();
+		for (int i = 0; i < _trenutnoPolaganja; i++)
+			_polaganja[i].Dealociraj();
+	}
+	void Ispis() {
+		cout << crt; cout << "NAZIV CENTRA: " << _nazivCentra; cout << crt;
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			_kursevi[i]->Ispis();
+		for (int i = 0; i < _trenutnoPolaganja; i++)
+			_polaganja[i].Ispis();
+	}
+	bool DodajKurs(Kurs kurs) {
+		if (_trenutnoKurseva == 50)
+			return false;
+		for (int i = 0; i < _trenutnoKurseva; i++)
+			if (_kursevi[i]->_predmet == kurs._predmet && kurs._pocetak->PretvoriDane() < _kursevi[i]->_kraj->PretvoriDane())
+				return false;
+
+		_kursevi[_trenutnoKurseva] = new Kurs;
+		_kursevi[_trenutnoKurseva]->Unos(kurs._predmet, kurs._razredi, *kurs._pocetak, *kurs._kraj, kurs._imePredavaca);
+		_trenutnoKurseva++;
+		return true;
+	}
+	bool DodajPolaganje(Polaganja polaganje) {
+		for (int i = 0; i < _trenutnoKurseva; i++) {
+			if (_kursevi[i]->_predmet != polaganje._kurs->_predmet)
+				return false;
+			if (polaganje._kurs->_pocetak->PretvoriDane() - _kursevi[i]->_kraj->PretvoriDane() < 15)
+				return false;
+			for (int j = 0; j < _trenutnoPolaganja; j++) {
+				if (strcmp(polaganje._polaznik->_imePrezime, _polaganja[j]._polaznik->_imePrezime) == 0 &&
+					polaganje._kurs->_predmet == _polaganja[j]._kurs->_predmet &&
+					polaganje._ocjena < _polaganja[j]._ocjena)
+					return false;
+			}
+		}
+		Polaganja*temp = new Polaganja[_trenutnoPolaganja + 1];
+		for (int i = 0; i < _trenutnoPolaganja; i++)
+			temp[i].Unos(*_polaganja[i]._polaznik, *_polaganja[i]._kurs, *_polaganja[i]._datumPolaganja, _polaganja[i]._ocjena);
+		temp[_trenutnoPolaganja].Unos(*polaganje._polaznik, *polaganje._kurs, *polaganje._datumPolaganja, polaganje._ocjena);
+		_polaganja = temp;
+		_trenutnoPolaganja++;
+		return true;
+	}
+	Polaganja * PolaganjaByDatumIRazred(Datum OD, Datum DO, enumRazredi razred, int &broj, Polaganja*vratiti = nullptr, int trenutnoPolaganja = 0) {
+		if (_trenutnoPolaganja == trenutnoPolaganja)
+			return vratiti;
+		if (_polaganja[_trenutnoPolaganja]._kurs->_razredi == razred && _polaganja[trenutnoPolaganja]._kurs->_pocetak->PretvoriDane() > OD.PretvoriDane() && _polaganja[_trenutnoPolaganja]._kurs->_kraj->PretvoriDane() < DO.PretvoriDane()) {
+			broj++;
+			return PolaganjaByDatumIRazred(OD, DO, razred, broj, &_polaganja[trenutnoPolaganja], trenutnoPolaganja + 1);
+		}
+		return PolaganjaByDatumIRazred(OD, DO, razred, broj, vratiti, trenutnoPolaganja + 1);
+	}
+};
+float PretragaRekurzivno(EdukacijskiCentar *centar, enumPredmeti matematika, int godina, int trenutnoPolaganja = 0, float uspjeh = 0, int brojac = 0) {
+	if (centar->_trenutnoPolaganja == trenutnoPolaganja) {
+		if (brojac == 0)return 0;
+		return (float)uspjeh / brojac;
+	}
+	if (centar->_polaganja[trenutnoPolaganja]._kurs->_predmet == matematika && *centar->_polaganja[trenutnoPolaganja]._datumPolaganja->_godina == godina)
+		return PretragaRekurzivno(centar, matematika, godina, trenutnoPolaganja + 1, uspjeh + centar->_polaganja[trenutnoPolaganja]._ocjena, brojac + 1);
+	return PretragaRekurzivno(centar, matematika, godina, trenutnoPolaganja, uspjeh, brojac);
+}
+void main() {
+	
+	Datum datum1, datum2, datum3, datum4, datum5, datum6;
+	datum1.Unos(26, 11, 2015);
+	datum2.Unos(29, 5, 2016);
+	datum3.Unos(5, 6, 2016);
+	datum4.Unos(15, 8, 2016);
+	datum5.Unos(13, 7, 2016);
+	datum6.Unos(22, 9, 2016);
+
+	Kurs matematika, hemija, biologija, engleski;
+	matematika.Unos(Matematika, III, datum1, datum2, "Nina Bijedic");
+	hemija.Unos(Hemija, III, datum2, datum3, "Murat Praso");
+	biologija.Unos(Biologija, IV, datum3, datum4, "Jasmin Azemovic");
+	engleski.Unos(Engleski, II, datum3, datum4, "Iris Memic");
+
+	Datum rodjenje1, rodjenje2;
+	rodjenje1.Unos(22, 8, 1982);
+	rodjenje2.Unos(23, 8, 1982);
+	Polaznik denis, zanin, indira;
+	denis.Unos(rodjenje1, "Denis Music");
+	zanin.Unos(rodjenje2, "Zanin Vejzovic");
+
+
+	Polaganja denisMatematika, zaninHemija, denisBiologija;
+	denisMatematika.Unos(denis, matematika, datum5, 3);
+	zaninHemija.Unos(zanin, hemija, datum6, 93);
+
+	EdukacijskiCentar mostar;
+	mostar.Unos("ECM - Edukacijski Center Mostar");
+
+	if (mostar.DodajKurs(matematika)) {
+		cout << crt << "KURS USPJESNO REGISTROVAN" << crt;
+		matematika.Ispis();
+		cout << crt;
+	}
+	if (mostar.DodajPolaganje(denisMatematika)) {
+		cout << crt << "POLAGANJE EVIDENTIRANO" << crt;
+		denisMatematika.Ispis();
+	}
+	Datum OD, DO;
+	int brojPolaganja = 0;
+	OD.Unos(1, 6, 2016);
+	DO.Unos(1, 8, 2016);
+	Polaganja * polaganjaByDatumiRazred = mostar.PolaganjaByDatumIRazred(OD, DO, II, brojPolaganja);
+	cout << "U periodu od ";
+	OD.Ispis();
+	cout << " do ";
+	DO.Ispis();
+	cout << " uspjesno je polozeno " << brojPolaganja << " predmeta --->>> ";
+	for (size_t i = 0; i < brojPolaganja; i++)
+		polaganjaByDatumiRazred[i].Ispis();
+
+
+	cout << "Prosjecan uspjeh na kursu iz predmeta Matematika u 2016 godini je " << PretragaRekurzivno(&mostar, Matematika, 2016) << endl;
+	mostar.Ispis();
+	datum1.Dealociraj(); datum2.Dealociraj(); datum3.Dealociraj(); datum4.Dealociraj(); datum5.Dealociraj(); datum6.Dealociraj();
+	matematika.Dealociraj(); hemija.Dealociraj(); biologija.Dealociraj(); engleski.Dealociraj();
+	rodjenje1.Dealociraj(); rodjenje2.Dealociraj();
+	denis.Dealociraj(); zanin.Dealociraj(); //indira.Dealociraj();
+	denisMatematika.Dealociraj(); zaninHemija.Dealociraj(); //denisBiologija.Dealociraj();
+	mostar.Dealociraj();
+
+	system("pause");
+}

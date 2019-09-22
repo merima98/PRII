@@ -1,0 +1,190 @@
+#include<iostream>
+#include<memory>
+#include<tuple>
+#include<fstream>
+using namespace std;
+const char * crt = "\n----------------------------------------------------\n";
+struct Datum {
+	int * _dan, *_mjesec, *_godina;
+	void Unos(int d, int m, int g) {
+		_dan = new int(d);
+		_mjesec = new int(m);
+		_godina = new int(g);
+	}
+	void Ispis() { cout << *_dan << "/" << *_mjesec << "/" << *_godina << endl; }
+	void Dealociraj() {
+		delete _dan; delete _mjesec; delete _godina;
+		_dan = _mjesec = _godina = nullptr;
+	}
+	int PretvoriDane() {
+		return *_dan + *_mjesec * 30 + *_godina * 365;
+	}
+};
+struct Izostanak {
+	char * _razlogIzostanka;
+	Datum _datumIzostanka;
+	int _brojSati;
+	bool _opravdano;
+	void Unos(Datum datumIzostanka, int brojSati) {
+		_datumIzostanka.Unos(*datumIzostanka._dan, *datumIzostanka._mjesec, *datumIzostanka._godina);
+		_brojSati = brojSati;
+		_opravdano = false;
+		_razlogIzostanka = new char;
+		_razlogIzostanka[0] = '\0';
+	}
+	void Dealociraj() { delete[]_razlogIzostanka; _razlogIzostanka = nullptr; }
+	void Ispis() { _datumIzostanka.Ispis(); cout << _razlogIzostanka << " " << _razlogIzostanka; }
+	void Opravdaj(const char * razlogIzostanka) {
+		if (_razlogIzostanka != nullptr)
+			delete _razlogIzostanka;
+		int vel = strlen(razlogIzostanka) + 1;
+		_razlogIzostanka = new char[vel];
+		strcpy_s(_razlogIzostanka, vel, razlogIzostanka);
+		_opravdano = true;
+	}
+
+};
+struct Student {
+	char _brojIndeksa[9];
+	char * _imePrezime;
+	Izostanak * _izostanci;
+	int _brojIzostanaka;
+	void Unos(const char *indeks, const char *imePrezime) {
+		strcpy_s(_brojIndeksa, 9, indeks);
+		_imePrezime = new char[strlen(imePrezime) + 1];
+		strcpy_s(_imePrezime, strlen(imePrezime) + 1, imePrezime);
+		_izostanci = nullptr;
+		_brojIzostanaka = 0;
+	}
+	void Dealociraj() {
+		delete[]_imePrezime; _imePrezime = nullptr;
+		for (int i = 0; i < _brojIzostanaka; i++)
+			_izostanci[i].Dealociraj();
+	}
+	void DodajIzostanak(Izostanak izostanak) {
+		for (int i = 0; i < _brojIzostanaka; i++)
+			if (_izostanci[i]._datumIzostanka.PretvoriDane() == izostanak._datumIzostanka.PretvoriDane()) {
+				_izostanci[i]._brojSati += izostanak._brojSati;
+			}
+
+		Izostanak*temp = new Izostanak[_brojIzostanaka + 1];
+		for (int i = 0; i < _brojIzostanaka; i++)
+			temp[i].Unos(_izostanci[i]._datumIzostanka, _izostanci[i]._brojSati);
+		temp[_brojIzostanaka].Unos(izostanak._datumIzostanka, izostanak._brojSati);
+		_izostanci = temp;
+		_brojIzostanaka++;
+	}
+	void Ispis() {
+		cout << crt;
+		cout << "Broj indeksa: " << _brojIndeksa;
+		cout << crt;
+		cout << "IME I PREZIME: " << _imePrezime;
+		cout << crt;
+		for (int i = 0; i < _brojIzostanaka; i++)
+			_izostanci[i].Ispis();
+		cout << crt;
+		char *naziv = new char[strlen(_brojIndeksa) + 5];
+		strcpy_s(naziv, strlen(_brojIndeksa) + 5, _brojIndeksa);
+		strcat_s(naziv, strlen(_brojIndeksa) + 5, ".txt");
+		ofstream upis(naziv);
+		if (!upis.fail()) {
+			upis << crt;
+			upis << "Broj indeksa: " << _brojIndeksa;
+			upis << crt;
+			upis << "IME I PREZIME: " << _imePrezime;
+			upis << crt;
+			for (int i = 0; i < _brojIzostanaka; i++) {
+				upis << *_izostanci[i]._datumIzostanka._dan << "." << *_izostanci[i]._datumIzostanka._mjesec << "." << *_izostanci[i]._datumIzostanka._godina << "." << endl;
+				upis << _izostanci[i]._razlogIzostanka << " " << _izostanci[i]._razlogIzostanka;
+				upis << crt;
+			}
+			upis.close();
+		}
+	}
+	Izostanak * BinarnaPretraga(Datum datum) {
+		for (int i = 0; i < _brojIzostanaka - 1; i++)
+			for (int j = i + 1; j < _brojIzostanaka; j++)
+				if (_izostanci[i]._datumIzostanka.PretvoriDane() > _izostanci[j]._datumIzostanka.PretvoriDane()) {//u ovom slucaju cu poredati: opadajuci -> rastuci
+					Datum temp;
+					temp = _izostanci[i]._datumIzostanka;
+					_izostanci[i]._datumIzostanka = _izostanci[j]._datumIzostanka;
+					_izostanci[j]._datumIzostanka = temp;
+				}
+		int prvi = 0, srednji = 0, zadnji = _brojIzostanaka;
+		while (prvi <= zadnji) {
+			srednji = (prvi + zadnji) / 2;
+			if (datum.PretvoriDane() > _izostanci[srednji]._datumIzostanka.PretvoriDane())
+				prvi = srednji + 1;
+			if (datum.PretvoriDane() == _izostanci[srednji]._datumIzostanka.PretvoriDane())
+				return _izostanci + srednji;
+			if (datum.PretvoriDane() < _izostanci[srednji]._datumIzostanka.PretvoriDane())
+				zadnji = srednji - 1;
+		}
+	}
+};
+Izostanak * PronadjiNajveciNeopravdaniIzostanak(Student*s, int brojIzostanaka = 0, Izostanak*najveciNeopravdani = nullptr) {
+	if (brojIzostanaka == s->_brojIzostanaka)
+		return najveciNeopravdani;
+	if (najveciNeopravdani == nullptr)
+		return PronadjiNajveciNeopravdaniIzostanak(s, brojIzostanaka + 1, &s->_izostanci[brojIzostanaka]);
+	if (s->_izostanci[brojIzostanaka]._opravdano == false && s->_izostanci[brojIzostanaka]._brojSati > najveciNeopravdani->_brojSati)
+		return PronadjiNajveciNeopravdaniIzostanak(s, brojIzostanaka + 1, &s->_izostanci[brojIzostanaka]);
+	return PronadjiNajveciNeopravdaniIzostanak(s, brojIzostanaka + 1, najveciNeopravdani);
+}
+int brojIndeksa = 170000;
+char *GenerisiSljedeciBrojIndeksa() {
+	char *indeks = new char[7];
+	_itoa_s(brojIndeksa, indeks, 7, 10);
+	char*vratiti = new char[9];
+	strcpy_s(vratiti, 9, "IB");
+	strcat_s(vratiti, 9, indeks);
+	brojIndeksa++;
+	return vratiti;
+}
+void main() {
+	Datum jucer, prije5Dana, prije10Dana;
+	jucer.Unos(12, 6, 2016);
+	prije5Dana.Unos(8, 6, 2016);
+	prije10Dana.Unos(3, 6, 2016);
+
+	Student denis;
+	denis.Unos(GenerisiSljedeciBrojIndeksa(), "Denis Music");
+
+
+	Izostanak izostanakJucer, izostanakPrije5Dana, izostanakPrije10Dana;
+
+	izostanakJucer.Unos(jucer, 5);
+	denis.DodajIzostanak(izostanakJucer);
+
+	izostanakPrije5Dana.Unos(prije5Dana, 3);
+	izostanakPrije5Dana.Opravdaj("Odsutan zbog bolesti - gripa");
+	denis.DodajIzostanak(izostanakPrije5Dana);
+	izostanakPrije5Dana.Unos(prije5Dana, 2);
+	denis.DodajIzostanak(izostanakPrije5Dana);
+
+	izostanakPrije10Dana.Unos(prije10Dana, 1);
+	denis.DodajIzostanak(izostanakPrije10Dana);
+	izostanakPrije10Dana.Unos(prije10Dana, 1);
+	denis.DodajIzostanak(izostanakPrije10Dana);
+
+	denis.Ispis();
+	Izostanak * p = denis.BinarnaPretraga(jucer);
+	cout << "Binarnom pretragom pronadjen izostanak -> ";
+	p->Ispis();
+	denis.Ispis();
+	Izostanak * p2 = PronadjiNajveciNeopravdaniIzostanak(&denis);
+	cout << "Rekurzivno pronadjen najveci neopravdani izostanak -> ";
+	p2->Ispis();
+	cout << endl;
+	jucer.Dealociraj();
+	prije5Dana.Dealociraj();
+	prije10Dana.Dealociraj();
+	denis.Dealociraj();
+	izostanakJucer.Dealociraj();
+	izostanakPrije5Dana.Dealociraj();
+	izostanakPrije10Dana.Dealociraj();
+	p->Dealociraj();
+	p2->Dealociraj();
+
+	system("pause>0");
+}
